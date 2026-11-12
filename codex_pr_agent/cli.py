@@ -1,6 +1,8 @@
 """Command-line interface for Codex PR Agent."""
 
 import argparse
+from dataclasses import asdict
+import json
 import subprocess
 import sys
 import os
@@ -39,17 +41,20 @@ def main():
     pr_parser.add_argument("--model", default="gpt-4o", help="OpenAI / LLM model name")
     pr_parser.add_argument("--post-comment", action="store_true", help="Post review comment directly to GitHub PR")
     pr_parser.add_argument("--submit-review", action="store_true", help="Submit official GitHub review verdict")
+    pr_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
 
     # Command: review-diff
     diff_parser = subparsers.add_parser("review-diff", help="Review a local unified diff file")
     diff_parser.add_argument("file", help="Path to unified diff file (or - for stdin)")
     diff_parser.add_argument("--model", default="gpt-4o", help="OpenAI / LLM model name")
+    diff_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
 
     # Command: review-git
     git_parser = subparsers.add_parser("review-git", help="Review local git changes directly")
     git_parser.add_argument("--staged", action="store_true", help="Review staged changes only (git diff --staged)")
     git_parser.add_argument("--base", default=None, help="Base branch/commit to diff against (e.g. main)")
     git_parser.add_argument("--model", default="gpt-4o", help="OpenAI / LLM model name")
+    git_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
 
     args = parser.parse_args()
 
@@ -67,7 +72,10 @@ def main():
                 diff_text = f.read()
 
         result = reviewer.review_diff(diff_text, repo_name="local-diff", pr_title=args.file)
-        print(result.summary_markdown)
+        if args.json_output:
+            print(json.dumps(asdict(result), indent=2))
+        else:
+            print(result.summary_markdown)
 
     elif args.command == "review-git":
         git_args = []
@@ -82,7 +90,10 @@ def main():
             sys.exit(0)
 
         result = reviewer.review_diff(diff_text, repo_name="local-workspace", pr_title="Local Changes")
-        print(result.summary_markdown)
+        if args.json_output:
+            print(json.dumps(asdict(result), indent=2))
+        else:
+            print(result.summary_markdown)
 
     elif args.command == "review-pr":
         gh = GitHubClient()
@@ -94,7 +105,10 @@ def main():
         print(f"Analyzing diff with model '{args.model}'...")
         result = reviewer.review_diff(diff_text, repo_name=args.repo, pr_title=pr_title)
 
-        print("\n" + result.summary_markdown + "\n")
+        if args.json_output:
+            print(json.dumps(asdict(result), indent=2))
+        else:
+            print("\n" + result.summary_markdown + "\n")
 
         if args.post_comment:
             print("Posting comment to GitHub...")
