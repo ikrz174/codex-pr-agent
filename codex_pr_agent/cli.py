@@ -56,11 +56,32 @@ def main():
     git_parser.add_argument("--model", default="gpt-4o", help="OpenAI / LLM model name")
     git_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
 
+    # Command: stats
+    stats_parser = subparsers.add_parser("stats", help="Print live repository statistics")
+    stats_parser.add_argument("--repo", required=True, help="GitHub repository (e.g. owner/repo)")
+    stats_parser.add_argument("--json", action="store_true", dest="json_output", help="Output structured JSON")
+
     args = parser.parse_args()
 
     if not args.command:
         parser.print_help()
         sys.exit(0)
+
+    if args.command == "stats":
+        from .repo_stats import RepoStats
+        rs = RepoStats()
+        summary = rs.get_summary(args.repo)
+        if args.json_output:
+            print(json.dumps(summary, indent=2))
+        else:
+            print(f"\n📦 {summary['repo']}")
+            print(f"  ⭐ Stars: {summary['stars']}  |  🍴 Forks: {summary['forks']}  |  👁 Watchers: {summary['watchers']}")
+            print(f"  🐛 Open Issues: {summary['open_issues']}  |  🔀 Open PRs: {summary['open_prs']}")
+            print(f"  🕒 Last Push: {summary['last_push']}")
+            print(f"\n  Recent commits:")
+            for c in summary["recent_commits"]:
+                print(f"    [{c['sha']}] {c['message']} — {c['author']} ({c['date'][:10]})")
+        return
 
     reviewer = CodeReviewer(model=args.model)
 
